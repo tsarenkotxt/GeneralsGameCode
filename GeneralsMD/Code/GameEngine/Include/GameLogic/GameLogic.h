@@ -296,6 +296,9 @@ private:
 	UnsignedInt	m_CRC;																			///< Cache of previous CRC value
 	std::map<Int, UnsignedInt> m_cachedCRCs;								///< CRCs we've seen this frame
 	Bool m_shouldValidateCRCs;															///< Should we validate CRCs this frame?
+
+	// show the CRC mismatch message once to inform the player
+	Bool m_hasShownCRCMismatch;
 	//-----------------------------------------------------------------------------------------------
 
 	//Added By Sadullah Nader
