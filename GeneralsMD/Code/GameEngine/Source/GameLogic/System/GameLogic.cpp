@@ -237,6 +237,7 @@ GameLogic::GameLogic( void )
 	}
 
 	m_shouldValidateCRCs = FALSE;
+	m_hasShownCRCMismatch = FALSE;
 	
 	m_startNewGame = FALSE;
 	//
@@ -2552,7 +2553,7 @@ void GameLogic::processCommandList( CommandList *list )
 		logicMessageDispatcher( msg, NULL );
 	}
 
-	if (m_shouldValidateCRCs && !TheNetwork->sawCRCMismatch())
+	if (m_shouldValidateCRCs && !m_hasShownCRCMismatch)
 	{
 		Bool sawCRCMismatch = FALSE;
 		Int numPlayers = 0;
@@ -2600,7 +2601,11 @@ void GameLogic::processCommandList( CommandList *list )
 					player?player->getPlayerDisplayName().str():L"<NONE>", crcIt->second));
 			}
 #endif // DEBUG_LOGGING
-			TheNetwork->setSawCRCMismatch();
+
+			// just disable the CRC mismatch — it’s generally fine for casual matches with friends
+			// TheNetwork->setSawCRCMismatch();
+			TheInGameUI->message("GUI:CRCMismatch");
+			m_hasShownCRCMismatch = TRUE;
 		}
 	}
 
