@@ -10,6 +10,8 @@ endif()
 target_link_libraries(z_generals PRIVATE
     binkstub
     comctl32
+    core_debug
+    core_profile
     d3d8
     d3dx8
     dbghelplib
@@ -20,12 +22,9 @@ target_link_libraries(z_generals PRIVATE
     safedisc
     vfw32
     winmm
-    z_debug
     z_gameengine
     z_gameenginedevice
-    z_profile
-    zi_libraries_include
-    zi_libraries_source
+    zi_always
 )
 
 # TODO Originally referred to build host and user, replace with git info perhaps?
@@ -51,7 +50,7 @@ file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/BuildVersion.h
 target_link_options(z_generals PRIVATE "/NODEFAULTLIB:libci.lib")
 
 target_include_directories(z_generals PRIVATE
-    .
+    ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_BINARY_DIR}
 )
 
