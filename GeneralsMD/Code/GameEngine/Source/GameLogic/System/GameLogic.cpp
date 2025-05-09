@@ -130,7 +130,7 @@ extern void externalAddTree(Coord3D location, Real scale, Real angle, AsciiStrin
 #endif
 
 
-#ifdef _INTERNAL
+#ifdef RTS_INTERNAL
 // for occasional debugging...
 //#pragma optimize("", off)
 //#pragma MESSAGE("************************************** WARNING, optimization disabled for debugging purposes")
@@ -1113,6 +1113,15 @@ void GameLogic::startNewGame( Bool loadingSaveGame )
 	GetPrecisionTimer(&startTime64);
 	#endif
 
+	// reset the frame counter
+	m_frame = 0;
+
+#ifdef DEBUG_CRC
+	// TheSuperHackers @info helmutbuhler 04/09/2025
+	// Let CRC Logger know that a new game was started.
+	CRCDebugStartNewGame();
+#endif
+
 	setLoadingMap( TRUE );
 
 	if( loadingSaveGame == FALSE )
@@ -1285,8 +1294,7 @@ void GameLogic::startNewGame( Bool loadingSaveGame )
 	if(m_loadScreen)
 		updateLoadProgress(LOAD_PROGRESS_POST_PARTICLE_INI_LOAD);
 
-	// reset the frame counter
-	m_frame = 0;
+	DEBUG_ASSERTCRASH(m_frame == 0, ("framecounter expected to be 0 here\n"));
 
 	// before loading the map, load the map.ini file in the same directory.
 	loadMapINI( TheGlobalData->m_mapName );
@@ -2272,7 +2280,9 @@ void GameLogic::startNewGame( Bool loadingSaveGame )
 
 	// Turn off shadows
 	TheWritableGlobalData->m_useShadowVolumes = false;
+#ifdef DEBUG_CRASHING
 	TheWritableGlobalData->m_debugIgnoreAsserts = TRUE;
+#endif
 
 	// Just look somewhere.  lookAt does some terrain specific setup, so it is good
 	// to call it.  jba
@@ -2547,7 +2557,7 @@ void GameLogic::processCommandList( CommandList *list )
 
 	for( msg = list->getFirstMessage(); msg; msg = msg->next() )
 	{
-#ifdef _DEBUG
+#ifdef RTS_DEBUG
 		DEBUG_ASSERTCRASH(msg != NULL && msg != (GameMessage*)0xdeadbeef, ("bad msg"));
 #endif
 		logicMessageDispatcher( msg, NULL );
@@ -2721,8 +2731,8 @@ void GameLogic::deselectObject(Object *obj, PlayerMaskType playerMask, Bool affe
 // ------------------------------------------------------------------------------------------------
 inline void GameLogic::validateSleepyUpdate() const
 {
-// pretty slow, so do only for DEBUG for now. turn on if you suspect wonkiness.
-#ifdef _DEBUG
+// pretty slow, so do only for DEBUG_CRASHING for now. turn on if you suspect wonkiness.
+#ifdef DEBUG_CRASHING
 	#define SLEEPY_DEBUG
 #endif
 #ifdef SLEEPY_DEBUG
@@ -2839,9 +2849,9 @@ Int GameLogic::rebalanceChildSleepyUpdate(Int i)
 	UpdateModulePtr* pI = &m_sleepyUpdates[i];
 
 	// our children are i*2 and i*2+1
-  Int child = ((i+1)<<1)-1;
-	UpdateModulePtr* pChild = &m_sleepyUpdates[child];
-	UpdateModulePtr* pSZ = &m_sleepyUpdates[m_sleepyUpdates.size()];	// yes, this is off the end.
+  Int child = ((i)<<1)+1;
+	UpdateModulePtr* pChild = &m_sleepyUpdates[0] + child;
+	UpdateModulePtr* pSZ = &m_sleepyUpdates[0] + m_sleepyUpdates.size();	// yes, this is off the end.
 
   while (pChild < pSZ) 
 	{
@@ -2871,13 +2881,13 @@ Int GameLogic::rebalanceChildSleepyUpdate(Int i)
 		i = child;
 		pI = pChild;
 
-		child = ((i+1)<<1)-1;
-		pChild = &m_sleepyUpdates[child];
+		child = ((i)<<1)+1;
+		pChild = &m_sleepyUpdates[0] + child;
   }
 #else
 	// our children are i*2 and i*2+1
 	Int sz = m_sleepyUpdates.size();
-  Int child = ((i+1)<<1)-1;
+  Int child = ((i)<<1)+1;
   while (child < sz) 
 	{
 		// choose the higher-priority of the two children; we must be higher-pri than that.
@@ -2900,7 +2910,7 @@ Int GameLogic::rebalanceChildSleepyUpdate(Int i)
 		a->friend_setIndexInLogic(i);
 		b->friend_setIndexInLogic(child);
 		i = child;
-		child = ((i+1)<<1)-1;
+		child = ((i)<<1)+1;
   }
 #endif
 	return i;
@@ -3595,11 +3605,11 @@ void GameLogic::update( void )
 		Total_Load_3D_Assets=0;
 	#endif
 
-#ifdef _PROFILE
+#ifdef RTS_PROFILE
     Profile::StartRange("map_load");
 #endif
 		startNewGame( FALSE );
-#ifdef _PROFILE
+#ifdef RTS_PROFILE
     Profile::StopRange("map_load");
 #endif
 		m_startNewGame = FALSE;
@@ -3656,12 +3666,12 @@ void GameLogic::update( void )
 	Bool isMPGameOrReplay = (TheRecorder && TheRecorder->isMultiplayer() && getGameMode() != GAME_SHELL && getGameMode() != GAME_NONE);
 	Bool isSoloGameOrReplay = (TheRecorder && !TheRecorder->isMultiplayer() && getGameMode() != GAME_SHELL && getGameMode() != GAME_NONE);
 	Bool generateForMP = (isMPGameOrReplay && (m_frame % TheGameInfo->getCRCInterval()) == 0);
-#if defined(_DEBUG) || defined(_INTERNAL)
+#ifdef DEBUG_CRC
 	Bool generateForSolo = isSoloGameOrReplay && ((m_frame && (m_frame%100 == 0)) ||
-		(getFrame() > TheCRCFirstFrameToLog && getFrame() < TheCRCLastFrameToLog && ((m_frame % REPLAY_CRC_INTERVAL) == 0)));
+		(getFrame() >= TheCRCFirstFrameToLog && getFrame() < TheCRCLastFrameToLog && ((m_frame % REPLAY_CRC_INTERVAL) == 0)));
 #else
 	Bool generateForSolo = isSoloGameOrReplay && ((m_frame % REPLAY_CRC_INTERVAL) == 0);
-#endif // defined(_DEBUG) || defined(_INTERNAL)
+#endif // DEBUG_CRC
 
 	if (generateForSolo || generateForMP)
 	{
@@ -3671,14 +3681,14 @@ void GameLogic::update( void )
 			GameMessage *msg = TheMessageStream->appendMessage( GameMessage::MSG_LOGIC_CRC );
 			msg->appendIntegerArgument( m_CRC );
 			msg->appendBooleanArgument( (TheRecorder && TheRecorder->getMode() == RECORDERMODETYPE_PLAYBACK) ); // playback CRC
-			//DEBUG_LOG(("Appended CRC of %8.8X on frame %d\n", m_CRC, m_frame));
+			DEBUG_LOG(("Appended CRC on frame %d: %8.8X\n", m_frame, m_CRC));
 		}
 		else
 		{
 			GameMessage *msg = TheMessageStream->appendMessage( GameMessage::MSG_LOGIC_CRC );
 			msg->appendIntegerArgument( m_CRC );
 			msg->appendBooleanArgument( (TheRecorder && TheRecorder->getMode() == RECORDERMODETYPE_PLAYBACK) ); // playback CRC
-			//DEBUG_LOG(("Appended Playback CRC of %8.8X on frame %d\n", m_CRC, m_frame));
+			DEBUG_LOG(("Appended Playback CRC on frame %d: %8.8X\n", m_frame, m_CRC));
 		}
 	}
 
@@ -3877,7 +3887,8 @@ void GameLogic::removeObjectFromLookupTable( Object *obj )
 {
 
 	// sanity
-	if( obj == NULL )
+	// TheSuperHackers @fix Mauller/Xezon 24/04/2025 Prevent out of range access to vector lookup table
+	if( obj == NULL || static_cast<size_t>(obj->getID()) >= m_objVector.size() )
 		return;
 
 	// remove from lookup table
@@ -4034,6 +4045,12 @@ UnsignedInt GameLogic::getCRC( Int mode, AsciiString deepCRCFileName )
 	{
 		AsciiString crcName;
 #ifdef DEBUG_CRC
+		// TheSuperHackers @info helmutbuhler 04/09/2025
+		// This allows you to save the binary data that is involved in the crc calculation
+		// to a binary file per frame.
+		// This was apparently used early in development and isn't that useful, because diffing
+		// that binary data is very difficult. The CRC logging is much easier to diff and also more
+		// granular than this because it can capture changes between two frames.
 		if (isInGameLogicUpdate() && g_keepCRCSaves && m_frame < 5)
 		{
 			xferCRC = NEW XferDeepCRC;
@@ -4256,7 +4273,6 @@ void GameLogic::setGamePaused( Bool paused, Bool pauseMusic )
 		while( drawable )
 		{
 			drawable->startAmbientSound();
-			TheAudio->stopAllAmbientsBy( drawable );
 			drawable = drawable->getNextDrawable();
 		}
 #endif

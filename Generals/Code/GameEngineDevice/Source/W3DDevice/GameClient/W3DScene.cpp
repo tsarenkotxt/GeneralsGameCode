@@ -49,7 +49,6 @@
 #include "W3DDevice/GameClient/HeightMap.h"
 #include "W3DDevice/GameClient/W3DScene.h"
 #include "W3DDevice/GameClient/W3DDynamicLight.h"
-#include "W3DDevice/GameClient/W3DGranny.h"
 #include "W3DDevice/GameClient/W3DShadow.h"
 #include "W3DDevice/GameClient/W3DStatusCircle.h"
 #include "W3DDevice/GameClient/W3DCustomScene.h"
@@ -64,7 +63,7 @@
 #include "WW3D2/dx8caps.h"
 #include "WW3D2/colorspace.h"
 
-#ifdef _INTERNAL
+#ifdef RTS_INTERNAL
 // for occasional debugging...
 //#pragma optimize("", off)
 //#pragma MESSAGE("************************************** WARNING, optimization disabled for debugging purposes")
@@ -105,7 +104,7 @@ RTS3DScene::RTS3DScene()
 	m_scratchLight = NEW_REF( LightClass, (LightClass::DIRECTIONAL) );
 //	REF_PTR_SET(m_globalLight[lightIndex], pLight);
 
-#if defined(_DEBUG) || defined(_INTERNAL)
+#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 	if (TheGlobalData->m_shroudOn)
 		m_shroudMaterialPass = NEW_REF(W3DShroudMaterialPassClass,());
 	else
@@ -752,7 +751,7 @@ void RTS3DScene::renderOneObject(RenderInfoClass &rinfo, RenderObjClass *robj, I
 
 		if (drawInfo)
 		{
-#if defined(_DEBUG) || defined(_INTERNAL)
+#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 			if (!TheGlobalData->m_shroudOn)
 				ss = OBJECTSHROUD_CLEAR;
 #endif
@@ -1125,16 +1124,6 @@ void RTS3DScene::Customized_Render( RenderInfoClass &rinfo )
 				renderOneObject(rinfo, robj, localPlayerIndex);
 		}
 	}
-
-#ifdef	INCLUDE_GRANNY_IN_BUILD
-	if (TheGrannyRenderObjSystem)
-	{	//we only want to update granny animations once per frame, so only queue
-		//them up if this is not a mirror pass.
-		if (!ShaderClass::Is_Backface_Culling_Inverted())
-			TheGrannyRenderObjSystem->queueUpdate();
-		TheGrannyRenderObjSystem->Flush();
-	}
-#endif
 	
 	//Tell shadow manager to render shadows at the end of this frame
 	//Don't draw shadows if there is no terrain present.
@@ -1234,7 +1223,7 @@ void renderStenciledPlayerColor( UnsignedInt color, UnsignedInt stencilRef, Bool
 		DX8Wrapper::Set_DX8_Render_State(D3DRS_ZFUNC, D3DCMP_NEVER  );	//fail all access to the frame buffer to improve memory bandwidth
 
 		//disable writes to color buffer
-		if (DX8Caps::Get_Default_Caps().PrimitiveMiscCaps & D3DPMISCCAPS_COLORWRITEENABLE)
+		if (DX8Wrapper::Get_Current_Caps()->Get_DX8_Caps().PrimitiveMiscCaps & D3DPMISCCAPS_COLORWRITEENABLE)
 		{	DX8Wrapper::_Get_D3D_Device8()->GetRenderState(D3DRS_COLORWRITEENABLE, &oldColorWriteEnable);
 			DX8Wrapper::Set_DX8_Render_State(D3DRS_COLORWRITEENABLE,0);
 		}

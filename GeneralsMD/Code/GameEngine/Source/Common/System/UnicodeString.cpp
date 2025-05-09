@@ -46,7 +46,7 @@
 
 #include "Common/CriticalSection.h"
 
-#ifdef _INTERNAL
+#ifdef RTS_INTERNAL
 // for occasional debugging...
 //#pragma optimize("", off)
 //#pragma MESSAGE("************************************** WARNING, optimization disabled for debugging purposes")
@@ -57,7 +57,7 @@
 /*static*/ UnicodeString UnicodeString::TheEmptyString;
 
 // -----------------------------------------------------
-#ifdef _DEBUG
+#ifdef RTS_DEBUG
 void UnicodeString::validate() const
 {
 	if (!m_data) return;
@@ -87,7 +87,8 @@ void UnicodeString::ensureUniqueBufferOfSize(int numCharsNeeded, Bool preserveDa
 	{
 		// no buffer manhandling is needed (it's already large enough, and unique to us)
 		if (strToCopy)
-			wcscpy(m_data->peek(), strToCopy);
+			// TheSuperHackers @fix Mauller 04/04/2025 Replace wcscpy with safer memmove as memory regions can overlap when part of string is copied to itself
+			memmove(m_data->peek(), strToCopy, (wcslen(strToCopy) + 1) * sizeof(WideChar));
 		if (strToCat)
 			wcscat(m_data->peek(), strToCat);
 		return;
@@ -101,7 +102,7 @@ void UnicodeString::ensureUniqueBufferOfSize(int numCharsNeeded, Bool preserveDa
 	UnicodeStringData* newData = (UnicodeStringData*)TheDynamicMemoryAllocator->allocateBytesDoNotZero(actualBytes, "STR_UnicodeString::ensureUniqueBufferOfSize");
 	newData->m_refCount = 1;
 	newData->m_numCharsAllocated = (actualBytes - sizeof(UnicodeStringData))/sizeof(WideChar);
-#if defined(_DEBUG) || defined(_INTERNAL)
+#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 	newData->m_debugptr = newData->peek();	// just makes it easier to read in the debugger
 #endif
 
